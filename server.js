@@ -1,53 +1,38 @@
 const express = require('express');
-const fetch = require('node-fetch');
+const axios = require('axios');
 const cheerio = require('cheerio');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-const TARGET = 'https://www.jerseys-catalog.com';
-
-const CSS = `
-<style>
-.price,.product-price,.amount,.old-price,.special-price,span[class*="price"],div[class*="price"]{display:none!important;}
-body > header > div{display:none!important;}
-.copy{display:none!important;}
-</style>
-`;
-
-app.use(async (req, res) => {
+app.get('/*', async (req, res) => {
   try {
-    const url = TARGET + req.originalUrl;
+    const targetUrl = req.originalUrl.slice(1);
 
-    const response = await fetch(url);
-    const contentType = response.headers.get('content-type');
+    const response = await axios.get(targetUrl, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121 Safari/537.36",
+        "Accept-Language": "it-IT,it;q=0.9,en;q=0.8",
+        "Referer": targetUrl,
+      },
+    });
 
-    if (contentType.includes('text/html')) {
-      const html = await response.text();
-      const $ = cheerio.load(html);
+    const $ = cheerio.load(response.data);
 
-      $('head').append(CSS);
+    // QUI METTI IL TUO CSS DI PULIZIA
+    $('body').append(`
+      <style>
+        /* INCOLLA QUI IL TUO CSS */
+      </style>
+    `);
 
-      // Riscrive tutti i link interni
-      $('a').each((i, el) => {
-        const href = $(el).attr('href');
-        if (href && href.startsWith('/')) {
-          $(el).attr('href', href);
-        }
-      });
-
-      res.send($.html());
-    } else {
-      // immagini, css, js passano diretti
-      const buffer = await response.buffer();
-      res.set('Content-Type', contentType);
-      res.send(buffer);
-    }
+    res.send($.html());
   } catch (err) {
-    res.status(500).send('Errore proxy');
+    console.log(err.message);
+    res.send("Errore proxy: " + err.message);
   }
 });
 
-app.listen(PORT, () => {
-  console.log('Proxy attivo su porta', PORT);
+app.listen(10000, () => {
+  console.log("Proxy attivo su porta 10000");
 });
